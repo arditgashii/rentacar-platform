@@ -1,0 +1,88 @@
+# Azure DevOps pipeline: the same checks as .github/workflows/ci.yml.
+trigger:
+  branches:
+    include: [main]
+
+pr:
+  branches:
+    include: [main]
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  PYTHON_VERSION: "3.12"
+  PIP_CACHE_DIR: $(Pipeline.Workspace)/.pip
+
+stages:
+  - stage: Build
+    displayName: Lint and unit tests
+    jobs:
+      - job: Lint
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: $(PYTHON_VERSION)
+          - task: Cache@2
+            inputs:
+              key: 'pip | "$(Agent.OS)" | requirements-dev.txt'
+              path: $(PIP_CACHE_DIR)
+          - script: pip install -r requirements-dev.txt
+            displayName: Install dependencies
+          - script: ruff check . && ruff format --check .
+            displayName: Ruff
+          - script: mypy app
+            displayName: Mypy
+
+      - job: UnitTests
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: $(PYTHON_VERSION)
+          - script: pip install -r requirements-dev.txt
+            displayName: Install dependencies
+          - script: pytest -q --junitxml=$(Build.ArtifactStagingDirectory)/unit.xml
+            displayName: Pytest
+          - task: PublishTestResults@2
+            condition: always()
+            inputs:
+              testResultsFormat: JUnit
+              testResultsFiles: $(Build.ArtifactStagingDirectory)/unit.xml
+              testRunTitle: Platform unit tests
+
+      - job: Infrastructure
+        steps:
+          - task: TerraformInstaller@1
+            inputs:
+              terraformVersion: latest
+          - script: |
+              cd infra/terraform
+              terraform fmt -check -recursive
+              terraform init -backend=false -input=false
+              terraform validate
+            displayName: Terraform validate
+          - task: HelmInstaller@1
+            inputs:
+              helmVersionToInstall: latest
+          - script: helm lint deploy/helm/drivenow && helm template ci deploy/helm/drivenow > /dev/null
+            displayName: Helm lint
+
+  - stage: Test
+    displayName: Docker stack
+    dependsOn: Build
+    jobs:
+      - job: DockerStack
+        steps:
+          - script: COMMIT=$(Build.SourceVersion) docker compose up -d --build --wait --wait-timeout 300 api
+            displayName: Start the stack
+          - script: |
+              for i in $(seq 1 30); do curl -fsS http://localhost:8000/health/ready && break; sleep 5; done
+              curl -fsS http://localhost:8000/health/ready
+              curl -fsS "http://localhost:8000/api/v1/cars?page_size=1" | grep -q '"total":22'
+            displayName: Check readiness
+          - script: docker compose logs --tail 200
+            condition: failed()
+            displayName: Logs on failure
+          - script: docker compose down -v
+            condition: always()
+            displayName: Stop the stack
