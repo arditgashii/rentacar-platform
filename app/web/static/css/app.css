@@ -130,6 +130,9 @@ input:focus, select:focus, textarea:focus { border-color: var(--brand); outline:
 .filters-box > summary { display: none; }
 .pagination { display: flex; justify-content: center; align-items: center; gap: 18px; margin-top: 24px; }
 
+/* Grid children may shrink below their content width (a long row of thumbnails must not widen the page). */
+.browse > *, .detail > *, .form-layout > * { min-width: 0; }
+
 /* Car detail */
 .detail { display: grid; grid-template-columns: 1fr 330px; gap: 32px; align-items: start; }
 .gallery { margin-bottom: 20px; }
