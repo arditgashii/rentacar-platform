@@ -1,3 +1,4 @@
+import asyncio
 import io
 import uuid
 
@@ -48,7 +49,7 @@ async def add_photo(
         raise AppError(409, "TOO_MANY_PHOTOS", f"A car can have at most {MAX_PHOTOS} photos.")
     if len(data) > MAX_BYTES:
         raise AppError(413, "PHOTO_TOO_LARGE", "A photo can be at most 5 MB.")
-    content_type, extension = detect_image(data)
+    content_type, extension = await asyncio.to_thread(detect_image, data)
 
     blob_name = f"cars/{car.id}/{uuid.uuid4().hex}.{extension}"
     await storage.upload(blob_name, data, content_type)
