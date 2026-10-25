@@ -12,11 +12,12 @@ from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
 from starlette.datastructures import FormData
 
+from app.config import get_settings
 from app.db import SessionLocal
 from app.errors import AppError
 from app.labels import label
 from app.models import Role, User
-from app.security import COOKIE_NAME, user_from_token
+from app.security import COOKIE_NAME, create_token, user_from_token
 
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 CSRF_COOKIE = "csrf_token"
@@ -107,6 +108,19 @@ def redirect(request: Request, url: str, message: str = "", kind: str = "success
         )
     _with_cookies(request, response)
     return response
+
+
+def start_session(response: RedirectResponse, user: User) -> None:
+    """Logs the browser in: the JWT goes into an HttpOnly cookie that scripts cannot read."""
+    settings = get_settings()
+    response.set_cookie(
+        COOKIE_NAME,
+        create_token(user),
+        httponly=True,
+        samesite="lax",
+        secure=settings.cookie_secure,
+        max_age=settings.jwt_expire_minutes * 60,
+    )
 
 
 def form_errors(error: ValidationError) -> dict[str, str]:

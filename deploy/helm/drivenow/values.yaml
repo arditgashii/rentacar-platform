@@ -30,6 +30,7 @@ config:
   DRIVENOW_BUGS: "on"
   LLM_PROVIDER: mock
   SEED_ON_START: "false"
+  COOKIE_SECURE: "true"
 
 # Name of an existing Secret (created by the pipeline or the CSI Key Vault driver) with
 # DATABASE_URL, AZURE_STORAGE_CONNECTION_STRING and SERVICEBUS_CONNECTION_STRING.

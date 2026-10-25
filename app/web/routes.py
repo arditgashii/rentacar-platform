@@ -7,14 +7,13 @@ from fastapi.responses import HTMLResponse, JSONResponse, Response
 from pydantic import ValidationError
 from starlette.datastructures import FormData, UploadFile
 
-from app.config import get_settings
 from app.db import SessionLocal
 from app.errors import AppError
 from app.llm import generate_description
 from app.models import CarStatus, Category, Feature, FuelType, Role, Transmission
 from app.presenters import booking_out, car_out
 from app.schemas import AdminUserPatch, BookingIn, CarCreate, CarUpdate, LoginIn, RegisterIn, UserOut
-from app.security import COOKIE_NAME, create_token
+from app.security import COOKIE_NAME
 from app.services import bookings, cars, photos, users
 from app.services.stats import collect_stats
 from app.web.support import (
@@ -24,6 +23,7 @@ from app.web.support import (
     redirect,
     render,
     require_user,
+    start_session,
 )
 
 router = APIRouter(include_in_schema=False)
@@ -90,13 +90,7 @@ async def login(request: Request) -> Response:
     response = redirect(
         request, "/admin" if user.role == Role.ADMIN else next_path, f"Welcome back, {user.full_name}."
     )
-    response.set_cookie(
-        COOKIE_NAME,
-        create_token(user),
-        httponly=True,
-        samesite="lax",
-        max_age=get_settings().jwt_expire_minutes * 60,
-    )
+    start_session(response, user)
     return response
 
 
@@ -130,7 +124,7 @@ async def register(request: Request) -> Response:
             request, "register.html", 400, values=values, errors={"email": error.detail}, cities=CITIES
         )
     response = redirect(request, "/cars", "Your account is ready.")
-    response.set_cookie(COOKIE_NAME, create_token(user), httponly=True, samesite="lax")
+    start_session(response, user)
     return response
 
 

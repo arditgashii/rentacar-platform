@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     key_vault_url: str = ""
     jwt_secret: str = "change-me-local-only-secret-of-32-plus-characters"
     jwt_expire_minutes: int = 120
+    # true behind HTTPS (the Helm chart sets it); false for http://localhost
+    cookie_secure: bool = False
 
     storage_backend: Literal["azure", "local"] = "azure"
     azure_storage_connection_string: str = (
