@@ -51,10 +51,12 @@ docker compose down -v                          # stop and delete the data
 **Without Docker** (SQLite, photos on disk, events in memory):
 
 ```bash
-py -3.12 -m venv .venv && .venv/Scripts/activate      # source .venv/bin/activate on Linux/macOS
+py -3.12 -m venv .venv          # python3.12 -m venv .venv on Linux/macOS
+.venv\Scripts\activate          # source .venv/bin/activate on Linux/macOS
 pip install -r requirements-dev.txt
-cp .env.example .env
-alembic upgrade head && python -m app.seed
+copy .env.example .env          # cp .env.example .env on Linux/macOS
+alembic upgrade head
+python -m app.seed
 uvicorn app.main:app --reload
 ```
 
