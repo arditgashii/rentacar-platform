@@ -9,6 +9,8 @@ test suite has to catch.
 
 ![Browse cars](docs/screenshots/browse.png)
 
+**Live demo:** https://drivenow-68x7.onrender.com (log in as `client1@drivenow.test` or `admin1@drivenow.test`, password `DriveNow!2026`; the free plan sleeps when idle, so the first request can take a minute).
+
 ## What it does
 
 | Area | Features |
