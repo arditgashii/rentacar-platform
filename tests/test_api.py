@@ -12,6 +12,8 @@ async def test_health_and_ready(client: httpx.AsyncClient) -> None:
     ready = await client.get("/health/ready")
     assert ready.status_code == 200
     assert ready.json()["checks"] == {"database": "ok", "storage": "ok", "bus": "ok"}
+    # The QA dashboard reads when the demo data was seeded (null when it was never seeded).
+    assert "seededAt" in ready.json()
 
 
 async def test_register_then_login(client: httpx.AsyncClient) -> None:

@@ -4,13 +4,14 @@ import re
 import subprocess  # nosec B404
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import UTC
 from functools import lru_cache
 from pathlib import Path
 
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import text
+from sqlalchemy import select, text
 from starlette.middleware.base import RequestResponseEndpoint
 
 from app.api import api_router
@@ -18,6 +19,7 @@ from app.config import get_settings
 from app.db import SessionLocal
 from app.errors import AppError, register_error_handlers
 from app.messaging import build_event_bus
+from app.models import User
 from app.observability import setup_logging, setup_observability
 from app.services.notifications import event_handler
 from app.services.photos import MAX_BYTES as MAX_PHOTO_BYTES
@@ -26,6 +28,8 @@ from app.web import web_router
 from app.web.support import LoginRequired, error_page, login_redirect
 
 STATIC_DIR = Path(__file__).parent / "web" / "static"
+# The first account the seed creates; its creation time is when the demo data was seeded.
+SEED_MARKER_EMAIL = "admin1@drivenow.test"
 BLOB_NAME = re.compile(r"^cars/\d+/[0-9a-f]{32}\.(jpg|png|webp)$")
 # The largest legal request: the car form with 8 photos of 5 MB, plus room for the other fields.
 MAX_BODY_BYTES = 8 * MAX_PHOTO_BYTES + 1024 * 1024
@@ -90,9 +94,14 @@ def create_app() -> FastAPI:
     @app.get("/health/ready", tags=["health"])
     async def ready(request: Request) -> JSONResponse:
         checks: dict[str, str] = {}
+        seeded_at: str | None = None
         try:
             async with SessionLocal() as db:
                 await db.execute(text("SELECT 1"))
+                # When the demo data was seeded: the QA dashboard warns when it is old.
+                first_admin = await db.scalar(select(User.created_at).where(User.email == SEED_MARKER_EMAIL))
+            if first_admin is not None:
+                seeded_at = first_admin.replace(tzinfo=UTC).isoformat()
             checks["database"] = "ok"
         except Exception as error:
             checks["database"] = f"error: {type(error).__name__}"
@@ -105,7 +114,7 @@ def create_app() -> FastAPI:
         healthy = all(value == "ok" for value in checks.values())
         return JSONResponse(
             status_code=200 if healthy else 503,
-            content={"status": "ok" if healthy else "unavailable", "checks": checks},
+            content={"status": "ok" if healthy else "unavailable", "checks": checks, "seededAt": seeded_at},
         )
 
     @app.get("/media/{blob_name:path}", include_in_schema=False)
