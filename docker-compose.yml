@@ -1,0 +1,109 @@
+name: drivenow
+
+x-app-env: &app-env
+  DATABASE_URL: mssql+aioodbc://sa:${SQL_PASSWORD:-DriveNow_Sql_2026!}@sqlserver:1433/drivenow?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes
+  STORAGE_BACKEND: azure
+  AZURE_STORAGE_CONNECTION_STRING: DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
+  MESSAGING_BACKEND: servicebus
+  SERVICEBUS_CONNECTION_STRING: Endpoint=sb://servicebus;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;
+  JWT_SECRET: ${JWT_SECRET:-local-docker-secret-change-me-at-least-32-chars}
+  DRIVENOW_BUGS: ${DRIVENOW_BUGS:-on}
+  LLM_PROVIDER: ${LLM_PROVIDER:-mock}
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+  ENVIRONMENT: docker
+
+services:
+  api:
+    build:
+      context: .
+      args:
+        COMMIT: ${COMMIT:-unknown}
+    image: drivenow-api:local
+    environment:
+      <<: *app-env
+      SEED_ON_START: "true"
+    ports:
+      - "8000:8000"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      azurite:
+        condition: service_started
+      servicebus:
+        condition: service_started
+    restart: unless-stopped
+
+  worker:
+    image: drivenow-api:local
+    command: ["python", "-m", "app.worker"]
+    environment: *app-env
+    healthcheck:
+      disable: true
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${SQL_PASSWORD:-DriveNow_Sql_2026!}
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqldata:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -C -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:latest
+    command: ["azurite-blob", "--blobHost", "0.0.0.0", "--blobPort", "10000", "--skipApiVersionCheck", "--loose"]
+    ports:
+      - "10000:10000"
+    volumes:
+      - blobdata:/data
+
+  servicebus:
+    image: mcr.microsoft.com/azure-messaging/servicebus-emulator:latest
+    environment:
+      ACCEPT_EULA: "Y"
+      SQL_SERVER: sqlserver
+      MSSQL_SA_PASSWORD: ${SQL_PASSWORD:-DriveNow_Sql_2026!}
+    volumes:
+      - ./docker/servicebus-config.json:/ServiceBus_Emulator/ConfigFiles/Config.json:ro
+    ports:
+      - "5672:5672"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+
+  prometheus:
+    profiles: ["observability"]
+    image: prom/prometheus:latest
+    volumes:
+      - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+
+  grafana:
+    profiles: ["observability"]
+    image: grafana/grafana:latest
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./docker/grafana:/etc/grafana/provisioning:ro
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+
+volumes:
+  sqldata:
+  blobdata:

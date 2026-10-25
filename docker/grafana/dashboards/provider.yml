@@ -1,0 +1,7 @@
+apiVersion: 1
+providers:
+  - name: DriveNow
+    folder: DriveNow
+    type: file
+    options:
+      path: /etc/grafana/provisioning/dashboards
