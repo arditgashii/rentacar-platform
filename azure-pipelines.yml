@@ -33,6 +33,8 @@ stages:
             displayName: Ruff
           - script: mypy app
             displayName: Mypy
+          - script: bandit -r app -q && pip-audit -r requirements.txt
+            displayName: Security checks
 
       - job: UnitTests
         steps:
