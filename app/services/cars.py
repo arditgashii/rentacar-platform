@@ -52,10 +52,13 @@ async def list_cars(db: AsyncSession, user: User | None, f: CarFilters) -> tuple
         query = query.where(Car.status == f.status)
 
     if f.q:
-        like = f"%{f.q.strip()}%"
-        query = query.where(or_(Car.make.ilike(like), Car.model.ilike(like)))
+        # autoescape: a % or _ typed by the user is a literal character, not a wildcard
+        text = f.q.strip()
+        query = query.where(
+            or_(Car.make.icontains(text, autoescape=True), Car.model.icontains(text, autoescape=True))
+        )
     if f.city:
-        query = query.where(Car.city.ilike(f.city.strip()))
+        query = query.where(func.lower(Car.city) == f.city.strip().lower())
     if f.category:
         query = query.where(Car.category == f.category)
     if f.transmission:
