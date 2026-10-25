@@ -4,17 +4,20 @@ Guardrails apply to both: plain text, at most 600 characters, must name make, mo
 must never contain a price. A model answer that breaks a rule is replaced by the mock text.
 """
 
+import logging
 import re
 
-from anthropic import AsyncAnthropic
+from anthropic import AnthropicError, AsyncAnthropic
 
 from app.config import get_settings
 from app.labels import lower_label
 from app.models import Car
 from app.secrets import get_secrets
 
+log = logging.getLogger(__name__)
 MAX_LENGTH = 600
 _PRICE = re.compile(r"(€|\$|£|\beur\b|\beuro|\busd\b|\bprice\b|\bper day\b)", re.IGNORECASE)
+_MARKDOWN = re.compile(r"(\*\*|__|^\s*#|^\s*[-*] )", re.MULTILINE)
 
 _PROMPT = """Write a short, friendly rental listing description for this car.
 Rules: plain text, no markdown, at most 450 characters, mention the make, the model and the year
@@ -55,6 +58,7 @@ def is_acceptable(text: str, car: Car) -> bool:
         and car.model.lower() in lowered
         and str(car.year) in text
         and not _PRICE.search(text)
+        and not _MARKDOWN.search(text)
     )
 
 
@@ -86,7 +90,12 @@ async def generate_description(car: Car) -> tuple[str, str]:
     if get_settings().llm_provider == "anthropic":
         api_key = get_secrets().get("anthropic-api-key")
         if api_key:
-            text = await _anthropic_description(car, api_key)
-            if is_acceptable(text, car):
-                return text, "anthropic"
+            try:
+                text = await _anthropic_description(car, api_key)
+            except AnthropicError:
+                log.exception("the LLM call failed, using the mock description")
+            else:
+                if is_acceptable(text, car):
+                    return text, "anthropic"
+                log.warning("the LLM answer broke the rules, using the mock description: %r", text)
     return mock_description(car), "mock"
