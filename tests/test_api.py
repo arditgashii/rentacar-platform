@@ -1,6 +1,7 @@
 from datetime import date, timedelta
 
 import httpx
+import pytest
 
 from app.messaging import MemoryEventBus
 from tests.conftest import car_payload, login, png_bytes
@@ -191,3 +192,51 @@ async def test_bug_flag_turns_the_four_bugs_on(client: httpx.AsyncClient, bugs_o
 
     deleted = await client.delete(f"/api/v1/cars/{car['id']}", headers=other)
     assert deleted.status_code == 204, "BUG-003 should let another client delete the car"
+
+
+async def test_search_text_is_not_a_wildcard(client: httpx.AsyncClient) -> None:
+    everything = await client.get("/api/v1/cars", params={"q": "%"})
+    assert everything.json()["total"] == 0, "a % in the search must be a literal character"
+
+
+async def test_city_filter_ignores_case_but_not_wildcards(client: httpx.AsyncClient) -> None:
+    lower = (await client.get("/api/v1/cars", params={"city": "prishtina"})).json()["total"]
+    exact = (await client.get("/api/v1/cars", params={"city": "Prishtina"})).json()["total"]
+    wildcard = (await client.get("/api/v1/cars", params={"city": "P%"})).json()["total"]
+    assert lower == exact > 0
+    assert wildcard == 0
+
+
+async def test_unsafe_request_id_is_replaced(client: httpx.AsyncClient) -> None:
+    safe = await client.get("/health", headers={"X-Request-ID": "abc-123"})
+    unsafe = await client.get("/health", headers={"X-Request-ID": "bad\nid"})
+    assert safe.headers["X-Request-ID"] == "abc-123"
+    assert unsafe.headers["X-Request-ID"] != "bad\nid"
+
+
+async def test_oversized_request_is_refused_before_reading(client: httpx.AsyncClient) -> None:
+    response = await client.post(
+        "/api/v1/cars", content=b"x", headers={"Content-Length": str(100 * 1024 * 1024)}
+    )
+    assert response.status_code == 413
+    assert response.json()["code"] == "PAYLOAD_TOO_LARGE"
+
+
+async def test_booking_survives_a_bus_outage(
+    client: httpx.AsyncClient, bus: MemoryEventBus, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    owner = await login(client, "client1@drivenow.test")
+    renter = await login(client, "client2@drivenow.test")
+    car = (await client.post("/api/v1/cars", json=car_payload(), headers=owner)).json()
+
+    async def broken_publish(event: dict[str, object]) -> None:
+        raise ConnectionError("bus down")
+
+    monkeypatch.setattr(bus, "publish", broken_publish)
+    start = date.today() + timedelta(days=20)
+    booking = await client.post(
+        "/api/v1/bookings",
+        json={"car_id": car["id"], "start_date": str(start), "end_date": str(start + timedelta(days=1))},
+        headers=renter,
+    )
+    assert booking.status_code == 201, "a saved booking must not turn into an error when the bus is down"

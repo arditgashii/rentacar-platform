@@ -1,9 +1,13 @@
 from datetime import date
 from decimal import Decimal
 
+import httpx
 import pytest
+from anthropic import APIConnectionError
 from pydantic import ValidationError
 
+from app import llm
+from app.config import get_settings
 from app.labels import label
 from app.llm import is_acceptable, mock_description
 from app.models import Car
@@ -82,3 +86,25 @@ def test_reserved_test_domain_is_accepted_and_bad_emails_are_not() -> None:
 def test_labels() -> None:
     assert label("air_conditioning") == "Air conditioning"
     assert label("suv") == "SUV"
+
+
+def test_guardrails_reject_markdown() -> None:
+    car = make_car()
+    assert not is_acceptable("**2021 Skoda Octavia** in Peja", car)
+    assert not is_acceptable("# 2021 Skoda Octavia\nNice car", car)
+    assert not is_acceptable("2021 Skoda Octavia:\n- GPS\n- air conditioning", car)
+
+
+async def test_llm_errors_fall_back_to_the_mock(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def failing_call(car: Car, api_key: str) -> str:
+        raise APIConnectionError(request=httpx.Request("POST", "https://api.anthropic.com"))
+
+    settings = get_settings()
+    monkeypatch.setattr(settings, "llm_provider", "anthropic")
+    monkeypatch.setattr(settings, "anthropic_api_key", "test-key")
+    monkeypatch.setattr(llm, "_anthropic_description", failing_call)
+
+    text, provider = await llm.generate_description(make_car())
+
+    assert provider == "mock"
+    assert is_acceptable(text, make_car())
