@@ -30,7 +30,9 @@ async def test_private_pages_redirect_to_login(client: httpx.AsyncClient) -> Non
 
 
 async def test_form_without_csrf_token_is_refused(client: httpx.AsyncClient) -> None:
-    response = await client.post("/login", data={"email": "client1@drivenow.test", "password": "DriveNow!2026"})
+    response = await client.post(
+        "/login", data={"email": "client1@drivenow.test", "password": "DriveNow!2026"}
+    )
     assert response.status_code == 400
 
 

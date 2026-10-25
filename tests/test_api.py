@@ -65,9 +65,7 @@ async def test_patch_is_validated_like_put(client: httpx.AsyncClient) -> None:
 
 async def test_max_price_includes_the_limit(client: httpx.AsyncClient) -> None:
     owner = await login(client, "client1@drivenow.test")
-    car = (
-        await client.post("/api/v1/cars", json=car_payload(daily_price=63.21), headers=owner)
-    ).json()
+    car = (await client.post("/api/v1/cars", json=car_payload(daily_price=63.21), headers=owner)).json()
 
     found = await client.get("/api/v1/cars", params={"min_price": 63.21, "max_price": 63.21})
 
@@ -107,9 +105,7 @@ async def test_back_to_back_bookings_are_allowed(client: httpx.AsyncClient) -> N
 async def test_booking_total_and_notifications(client: httpx.AsyncClient, bus: MemoryEventBus) -> None:
     owner = await login(client, "client3@drivenow.test")
     renter = await login(client, "client4@drivenow.test")
-    car = (
-        await client.post("/api/v1/cars", json=car_payload(daily_price=33.33), headers=owner)
-    ).json()
+    car = (await client.post("/api/v1/cars", json=car_payload(daily_price=33.33), headers=owner)).json()
     start = date.today() + timedelta(days=4)
     booking = await client.post(
         "/api/v1/bookings",
@@ -172,21 +168,25 @@ async def test_admin_endpoints_need_an_admin(client: httpx.AsyncClient) -> None:
 async def test_bug_flag_turns_the_four_bugs_on(client: httpx.AsyncClient, bugs_on: None) -> None:
     owner = await login(client, "client5@drivenow.test")
     other = await login(client, "client6@drivenow.test")
-    car = (
-        await client.post("/api/v1/cars", json=car_payload(daily_price=71.71), headers=owner)
-    ).json()
+    car = (await client.post("/api/v1/cars", json=car_payload(daily_price=71.71), headers=owner)).json()
 
     found = await client.get("/api/v1/cars", params={"min_price": 71.71, "max_price": 71.71})
     assert found.json()["total"] == 0, "BUG-004 should hide a car priced exactly at max_price"
 
     start = date.today() + timedelta(days=8)
     first = {"car_id": car["id"], "start_date": str(start), "end_date": str(start + timedelta(days=1))}
-    around = {**first, "start_date": str(start - timedelta(days=1)), "end_date": str(start + timedelta(days=3))}
+    around = {
+        **first,
+        "start_date": str(start - timedelta(days=1)),
+        "end_date": str(start + timedelta(days=3)),
+    }
     await client.post("/api/v1/bookings", json=first, headers=other)
     overlap = await client.post("/api/v1/bookings", json=around, headers=other)
     assert overlap.status_code == 201, "BUG-002 should accept an enclosing booking"
 
-    updated = await client.put(f"/api/v1/cars/{car['id']}", json=car_payload(daily_price=89.99), headers=owner)
+    updated = await client.put(
+        f"/api/v1/cars/{car['id']}", json=car_payload(daily_price=89.99), headers=owner
+    )
     assert updated.json()["daily_price"] == 89.0, "BUG-001 should cut the price"
 
     deleted = await client.delete(f"/api/v1/cars/{car['id']}", headers=other)
