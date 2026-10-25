@@ -60,6 +60,8 @@ python -m app.seed
 uvicorn app.main:app --reload
 ```
 
+**Public demo on Render:** [render.yaml](render.yaml) runs the same image as one container on the free plan, with SQLite, photos on disk and events in memory. In Render choose **New, Blueprint** and pick this repo; it generates the JWT secret itself. The free plan sleeps when idle and starts with fresh seed data each time.
+
 ## Seeded accounts
 
 Every account uses the password `DriveNow!2026`.
