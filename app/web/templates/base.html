@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}DriveNow{% endblock %} | DriveNow</title>
+  <link rel="stylesheet" href="/static/css/app.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%231a56db'/><text x='16' y='22' font-size='17' font-family='Arial' font-weight='700' fill='white' text-anchor='middle'>D</text></svg>">
+</head>
+<body>
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <a href="/" class="logo" data-testid="nav-logo">Drive<span>Now</span></a>
+      <button class="nav-toggle" type="button" aria-label="Menu" aria-expanded="false" data-testid="nav-toggle">Menu</button>
+      <nav class="nav" data-testid="navbar">
+        <a href="/cars" data-testid="nav-cars">Browse cars</a>
+        {% if user %}
+          {% if user.role == "admin" %}
+            <a href="/admin" data-testid="nav-admin">Dashboard</a>
+            <a href="/admin/cars" data-testid="nav-admin-cars">Cars</a>
+            <a href="/admin/bookings" data-testid="nav-admin-bookings">Bookings</a>
+            <a href="/admin/users" data-testid="nav-admin-users">Users</a>
+          {% else %}
+            <a href="/my/listings" data-testid="nav-my-listings">My listings</a>
+            <a href="/my/bookings" data-testid="nav-my-bookings">My bookings</a>
+            <a href="/cars/new" class="btn btn-primary btn-sm" data-testid="nav-new-car">List your car</a>
+          {% endif %}
+          <span class="nav-user" data-testid="nav-user-name">{{ user.full_name }}</span>
+          <form method="post" action="/logout" class="inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="link-button" data-testid="nav-logout">Log out</button>
+          </form>
+        {% else %}
+          <a href="/login" data-testid="nav-login">Log in</a>
+          <a href="/register" class="btn btn-primary btn-sm" data-testid="nav-register">Sign up</a>
+        {% endif %}
+      </nav>
+    </div>
+  </header>
+
+  <main class="container main">
+    {% if flash %}
+      <div class="flash flash-{{ flash.kind }}" role="status" data-testid="flash-{{ flash.kind }}">{{ flash.message }}</div>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+
+  <dialog class="confirm-dialog" data-testid="confirm-dialog">
+    <p data-testid="confirm-message"></p>
+    <div class="form-actions">
+      <button type="button" class="btn btn-danger" data-confirm-yes data-testid="confirm-yes">Yes, continue</button>
+      <button type="button" class="btn" data-confirm-no data-testid="confirm-no">Cancel</button>
+    </div>
+  </dialog>
+
+  <footer class="footer">
+    <div class="container">DriveNow is a demo rent-a-car marketplace built as a system under test.</div>
+  </footer>
+  <script src="/static/js/app.js" defer></script>
+</body>
+</html>

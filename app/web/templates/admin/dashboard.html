@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Dashboard</h1></div>
+<div class="stats" data-testid="admin-stats">
+  <div class="stat"><span class="muted">Cars</span><strong data-testid="stat-cars">{{ stats.cars }}</strong><small class="muted">{{ stats.available_cars }} available</small></div>
+  <div class="stat"><span class="muted">Active bookings</span><strong data-testid="stat-active-bookings">{{ stats.active_bookings }}</strong><small class="muted">pending or confirmed</small></div>
+  <div class="stat"><span class="muted">Revenue this month</span><strong data-testid="stat-revenue">&euro;{{ stats.revenue_this_month|money }}</strong><small class="muted">confirmed and completed</small></div>
+  <div class="stat"><span class="muted">Users</span><strong data-testid="stat-users">{{ stats.users }}</strong><small class="muted">clients and admins</small></div>
+</div>
+
+<div class="section-head">
+  <h2>Recent bookings</h2>
+  <a href="/admin/bookings" data-testid="admin-all-bookings">All bookings</a>
+</div>
+{% if stats.recent_bookings %}
+  {% set bookings = stats.recent_bookings %}{% set admin_view = true %}{% set back = "/admin" %}
+  {% include "_bookings_table.html" %}
+{% else %}
+  <p class="muted" data-testid="admin-no-bookings">No bookings yet.</p>
+{% endif %}
+{% endblock %}

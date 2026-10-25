@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Bookings{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Bookings</h1><span class="muted">{{ bookings|length }} total</span></div>
+{% if bookings %}
+  {% set admin_view = true %}{% set back = "/admin/bookings" %}
+  {% include "_bookings_table.html" %}
+{% else %}
+  <div class="empty-state" data-testid="admin-bookings-empty"><h2>No bookings yet</h2></div>
+{% endif %}
+{% endblock %}

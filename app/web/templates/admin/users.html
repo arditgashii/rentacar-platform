@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Users{% endblock %}
+{% macro action(u, change, label, danger=false) %}
+  <form method="post" action="/admin/users/{{ u.id }}" class="inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="change" value="{{ change }}">
+    <button class="link-button {% if danger %}danger{% endif %}" data-testid="admin-users-{{ change|replace('_', '-') }}-{{ u.id }}">{{ label }}</button>
+  </form>
+{% endmacro %}
+{% block content %}
+<div class="page-head"><h1>Users</h1><span class="muted">{{ users|length }} total</span></div>
+<div class="table-wrap">
+  <table class="table" data-testid="admin-users-table">
+    <thead><tr><th>Name</th><th>Email</th><th>City</th><th>Role</th><th>Status</th><th>Joined</th><th></th></tr></thead>
+    <tbody>
+      {% for u in users %}
+        <tr data-testid="admin-users-row-{{ u.id }}">
+          <td>{{ u.full_name }}</td>
+          <td>{{ u.email }}</td>
+          <td>{{ u.city or "-" }}</td>
+          <td data-testid="admin-users-role-{{ u.id }}">{{ u.role.value|label }}</td>
+          <td><span class="badge {{ 'badge-available' if u.is_active else 'badge-archived' }}" data-testid="admin-users-status-{{ u.id }}">{{ "Active" if u.is_active else "Inactive" }}</span></td>
+          <td>{{ u.created_at.strftime("%d %b %Y") }}</td>
+          <td class="actions">
+            {% if u.id != user.id %}
+              {% if u.is_active %}{{ action(u, "deactivate", "Deactivate", true) }}{% else %}{{ action(u, "activate", "Activate") }}{% endif %}
+              {% if u.role.value == "client" %}{{ action(u, "make_admin", "Make admin") }}{% else %}{{ action(u, "make_client", "Make client") }}{% endif %}
+            {% else %}<span class="muted small">You</span>{% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

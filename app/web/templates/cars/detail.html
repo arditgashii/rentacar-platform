@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}{{ car.make }} {{ car.model }}{% endblock %}
+{% block content %}
+<nav class="crumbs"><a href="/cars">Browse cars</a> / <span>{{ car.make }} {{ car.model }}</span></nav>
+
+<div class="detail">
+  <section>
+    <div class="gallery" data-testid="car-gallery">
+      {% if car.photos %}
+        <img class="gallery-main" src="{{ car.primary_photo_url }}" alt="{{ car.make }} {{ car.model }}" data-testid="car-main-photo">
+        {% if car.photos|length > 1 %}
+          <div class="gallery-thumbs">
+            {% for photo in car.photos %}
+              <button type="button" class="thumb {% if photo.is_primary %}active{% endif %}" data-src="{{ photo.url }}" data-testid="car-thumb-{{ photo.id }}">
+                <img src="{{ photo.url }}" alt="Photo {{ loop.index }}" loading="lazy">
+              </button>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% else %}
+        <div class="no-photo gallery-main">No photos yet</div>
+      {% endif %}
+    </div>
+
+    <h1 data-testid="car-title">{{ car.year }} {{ car.make }} {{ car.model }}</h1>
+    <p class="muted">Listed by <span data-testid="car-owner">{{ car.owner_name }}</span> in <span data-testid="car-city">{{ car.city }}</span>
+      {% if car.status != "available" %}<span class="badge badge-{{ car.status }}" data-testid="car-status">{{ car.status|label }}</span>{% endif %}
+    </p>
+
+    {% if car.description %}<p class="description" data-testid="car-description">{{ car.description }}</p>{% endif %}
+
+    <h2>Details</h2>
+    <dl class="specs" data-testid="car-specs">
+      <div><dt>Type</dt><dd data-testid="car-category">{{ car.category|label }}</dd></div>
+      <div><dt>Transmission</dt><dd data-testid="car-transmission">{{ car.transmission|label }}</dd></div>
+      <div><dt>Fuel</dt><dd data-testid="car-fuel-type">{{ car.fuel_type|label }}</dd></div>
+      <div><dt>Seats</dt><dd data-testid="car-seats">{{ car.seats }}</dd></div>
+      <div><dt>Doors</dt><dd data-testid="car-doors">{{ car.doors }}</dd></div>
+      <div><dt>Mileage</dt><dd data-testid="car-mileage">{{ "{:,}".format(car.mileage_km) }} km</dd></div>
+      <div><dt>Color</dt><dd data-testid="car-color">{{ car.color }}</dd></div>
+      <div><dt>Plate</dt><dd data-testid="car-plate">{{ car.license_plate }}</dd></div>
+      {% if car.pickup_address %}<div><dt>Pickup</dt><dd data-testid="car-pickup">{{ car.pickup_address }}</dd></div>{% endif %}
+    </dl>
+
+    {% if car.features %}
+      <h2>Features</h2>
+      <ul class="chips" data-testid="car-features">
+        {% for f in car.features %}<li data-testid="car-feature-{{ f.value }}">{{ f.value|label }}</li>{% endfor %}
+      </ul>
+    {% endif %}
+  </section>
+
+  <aside class="booking-box" data-testid="booking-box">
+    <div class="price"><strong data-testid="car-daily-price">&euro;{{ car.daily_price|money }}</strong> <span class="muted">/ day</span></div>
+    <div class="muted small">Deposit <span data-testid="car-deposit">&euro;{{ car.deposit|money }}</span></div>
+
+    {% if can_book %}
+      <form method="post" action="/cars/{{ car.id }}/book" class="booking-form" data-testid="booking-form" data-price="{{ car.daily_price }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <div class="field-row">
+          <label class="field"><span>Pickup</span>
+            <input type="date" name="start_date" value="{{ default_start }}" min="{{ today }}" required data-testid="booking-start">
+          </label>
+          <label class="field"><span>Return</span>
+            <input type="date" name="end_date" value="{{ default_end }}" min="{{ today }}" required data-testid="booking-end">
+          </label>
+        </div>
+        <div class="booking-total"><span>Total</span> <strong data-testid="booking-total">&nbsp;</strong></div>
+        <button class="btn btn-primary btn-block" type="submit" data-testid="booking-submit">Request booking</button>
+      </form>
+    {% elif not user %}
+      <a class="btn btn-primary btn-block" href="/login?next=/cars/{{ car.id }}" data-testid="booking-login">Log in to book</a>
+    {% elif can_manage %}
+      <a class="btn btn-block" href="/cars/{{ car.id }}/edit" data-testid="car-edit-link">Edit this car</a>
+    {% endif %}
+  </aside>
+</div>
+{% endblock %}

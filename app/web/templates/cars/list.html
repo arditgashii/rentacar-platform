@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Browse cars{% endblock %}
+{% macro select(name, options, any_label) %}
+  <select name="{{ name }}" data-testid="filter-{{ name|replace('_', '-') }}">
+    <option value="">{{ any_label }}</option>
+    {% for o in options %}
+      {% set v = o.value if o.value is defined else o %}
+      <option value="{{ v }}" {% if params.get(name) == v %}selected{% endif %}>{{ v|label }}</option>
+    {% endfor %}
+  </select>
+{% endmacro %}
+{% block content %}
+<div class="page-head">
+  <h1>Browse cars</h1>
+  <span class="muted" data-testid="cars-total">{{ total }} {{ "car" if total == 1 else "cars" }}</span>
+</div>
+
+<div class="browse">
+  <details class="filters-box" open data-testid="filters-box">
+  <summary data-testid="filters-toggle">Filters</summary>
+  <form class="filters" method="get" action="/cars" data-testid="filters">
+    <label class="field"><span>Search</span>
+      <input type="search" name="q" value="{{ params.get('q', '') }}" placeholder="Make or model" maxlength="60" data-testid="filter-q">
+    </label>
+    <label class="field"><span>City</span>{{ select("city", cities, "Any city") }}</label>
+    <label class="field"><span>Type</span>{{ select("category", categories, "Any type") }}</label>
+    <label class="field"><span>Transmission</span>{{ select("transmission", transmissions, "Any") }}</label>
+    <label class="field"><span>Fuel</span>{{ select("fuel_type", fuel_types, "Any") }}</label>
+    <div class="field-row">
+      <label class="field"><span>Min &euro;</span>
+        <input type="number" name="min_price" min="0" step="0.01" value="{{ params.get('min_price', '') }}" data-testid="filter-min-price">
+      </label>
+      <label class="field"><span>Max &euro;</span>
+        <input type="number" name="max_price" min="0" step="0.01" value="{{ params.get('max_price', '') }}" data-testid="filter-max-price">
+      </label>
+    </div>
+    <label class="field"><span>Seats</span>
+      <select name="seats" data-testid="filter-seats">
+        <option value="">Any</option>
+        {% for n in [2, 4, 5, 7, 9] %}<option value="{{ n }}" {% if params.get('seats') == n|string %}selected{% endif %}>{{ n }}+</option>{% endfor %}
+      </select>
+    </label>
+    <label class="field"><span>Sort by</span>
+      <select name="sort" data-testid="filter-sort">
+        <option value="newest">Newest</option>
+        <option value="price_asc" {% if params.get('sort') == 'price_asc' %}selected{% endif %}>Price: low to high</option>
+        <option value="price_desc" {% if params.get('sort') == 'price_desc' %}selected{% endif %}>Price: high to low</option>
+      </select>
+    </label>
+    <button class="btn btn-primary btn-block" type="submit" data-testid="filter-apply">Apply filters</button>
+    <a class="btn btn-block" href="/cars" data-testid="filter-clear">Clear</a>
+  </form>
+  </details>
+
+  <section>
+    {% if cars %}
+      <div class="car-grid" data-testid="cars-grid">
+        {% for car in cars %}{% include "_car_card.html" %}{% endfor %}
+      </div>
+      {% if pages > 1 %}
+        <nav class="pagination" aria-label="Pages" data-testid="pagination">
+          {% if page > 1 %}<a href="{{ page_url(request, page=page - 1) }}" data-testid="pagination-prev">Previous</a>{% endif %}
+          <span data-testid="pagination-current">Page {{ page }} of {{ pages }}</span>
+          {% if page < pages %}<a href="{{ page_url(request, page=page + 1) }}" data-testid="pagination-next">Next</a>{% endif %}
+        </nav>
+      {% endif %}
+    {% else %}
+      <div class="empty-state" data-testid="cars-empty">
+        <h2>No cars match these filters</h2>
+        <p class="muted">Try another city or a wider price range.</p>
+        <a class="btn" href="/cars">Clear filters</a>
+      </div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}{{ "Edit car" if car else "List your car" }}{% endblock %}
+{% macro error(name) %}{% if errors.get(name) %}<span class="field-error" data-testid="car-form-error-{{ name|replace('_', '-') }}">{{ errors[name] }}</span>{% endif %}{% endmacro %}
+{% macro text(name, label, type="text", extra="") %}
+  <label class="field"><span>{{ label }}</span>
+    <input type="{{ type }}" name="{{ name }}" value="{{ values.get(name, '') if values.get(name) is not none else '' }}" {{ extra|safe }} data-testid="car-form-{{ name|replace('_', '-') }}">
+    {{ error(name) }}
+  </label>
+{% endmacro %}
+{% macro choice(name, label, options) %}
+  <label class="field"><span>{{ label }}</span>
+    <select name="{{ name }}" data-testid="car-form-{{ name|replace('_', '-') }}">
+      {% set current = values.get(name)|string if values.get(name) is not none else "" %}
+      {% if current and current not in options|map("string")|list %}<option value="{{ current }}" selected>{{ current }}</option>{% endif %}
+      {% for o in options %}
+        {% set v = o.value if o.value is defined else o %}
+        <option value="{{ v }}" {% if (values.get(name)|string) == v %}selected{% endif %}>{{ v|label }}</option>
+      {% endfor %}
+    </select>
+    {{ error(name) }}
+  </label>
+{% endmacro %}
+{% block content %}
+<nav class="crumbs">
+  {% if car %}<a href="/cars/{{ car.id }}">{{ car.make }} {{ car.model }}</a> / <span>Edit</span>{% else %}<a href="/my/listings">My listings</a> / <span>New car</span>{% endif %}
+</nav>
+<div class="page-head">
+  <h1>{{ "Edit " ~ car.make ~ " " ~ car.model if car else "List your car" }}</h1>
+  {% if car %}<a href="/cars/{{ car.id }}" data-testid="car-form-view">View listing</a>{% endif %}
+</div>
+
+<div class="form-layout">
+  <form method="post" action="{{ '/cars/%d/edit'|format(car.id) if car else '/cars/new' }}" enctype="multipart/form-data" class="card" data-testid="car-form" novalidate>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <h2>Car</h2>
+    <div class="field-row">{{ text("make", "Make", extra='required maxlength="60"') }}{{ text("model", "Model", extra='required maxlength="60"') }}</div>
+    <div class="field-row">
+      {{ text("year", "Year", "number", 'min="1990" required') }}
+      {{ text("color", "Color", extra='required maxlength="40"') }}
+    </div>
+    <div class="field-row">
+      {{ choice("category", "Type", categories) }}
+      {{ choice("transmission", "Transmission", transmissions) }}
+      {{ choice("fuel_type", "Fuel", fuel_types) }}
+    </div>
+    <div class="field-row">
+      {{ text("seats", "Seats", "number", 'min="2" max="9" required') }}
+      {{ text("doors", "Doors", "number", 'min="2" max="5" required') }}
+      {{ text("mileage_km", "Mileage (km)", "number", 'min="0" required') }}
+    </div>
+    {{ text("license_plate", "License plate", extra='required maxlength="20"') }}
+
+    <h2>Price and pickup</h2>
+    <div class="field-row">
+      {{ text("daily_price", "Price per day (EUR)", "number", 'min="0.01" step="0.01" required') }}
+      {{ text("deposit", "Deposit (EUR)", "number", 'min="0" step="0.01"') }}
+    </div>
+    <div class="field-row">
+      {{ choice("city", "City", cities) }}
+      {{ text("pickup_address", "Pickup address", extra='maxlength="200"') }}
+    </div>
+
+    <h2>Description</h2>
+    <label class="field">
+      <span class="label-row">Description
+        {% if car %}<button type="button" class="link-button" data-describe="/cars/{{ car.id }}/describe" data-testid="car-form-generate-description">Generate description</button>{% endif %}
+      </span>
+      <textarea name="description" rows="5" maxlength="2000" data-testid="car-form-description">{{ values.get('description') or '' }}</textarea>
+      {{ error("description") }}
+    </label>
+
+    <h2>Features</h2>
+    <div class="checks" data-testid="car-form-features">
+      {% set chosen = values.get('features') or [] %}
+      {% for f in features %}
+        <label class="check"><input type="checkbox" name="features" value="{{ f.value }}" {% if f.value in chosen or f in chosen %}checked{% endif %} data-testid="car-form-feature-{{ f.value }}"> {{ f.value|label }}</label>
+      {% endfor %}
+    </div>
+
+    <h2>Status</h2>
+    {{ choice("status", "Status", statuses) }}
+
+    {% if not car %}
+      <h2>Photos</h2>
+      <label class="field"><span>JPG, PNG or WEBP, up to 5 MB each, at most 8</span>
+        <input type="file" name="photos" accept="image/jpeg,image/png,image/webp" multiple data-testid="car-form-photos">
+      </label>
+    {% endif %}
+
+    <div class="form-actions">
+      <button class="btn btn-primary" type="submit" data-testid="car-form-submit">{{ "Save changes" if car else "Publish car" }}</button>
+      <a class="btn" href="{{ '/cars/%d'|format(car.id) if car else '/my/listings' }}" data-testid="car-form-cancel">Cancel</a>
+    </div>
+  </form>
+
+  {% if car %}
+    <aside class="card photos-panel" data-testid="photo-manager">
+      <h2>Photos <span class="muted small">({{ car.photos|length }} of 8)</span></h2>
+      <ul class="photo-list">
+        {% for photo in car.photos %}
+          <li data-testid="photo-item-{{ photo.id }}">
+            <img src="{{ photo.url }}" alt="Photo {{ loop.index }}">
+            <div class="photo-actions">
+              {% if photo.is_primary %}<span class="badge badge-available" data-testid="photo-primary-badge">Main photo</span>{% else %}
+                <form method="post" action="/cars/{{ car.id }}/photos/{{ photo.id }}/primary"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="link-button" data-testid="photo-make-primary-{{ photo.id }}">Make main</button></form>
+              {% endif %}
+              {% if not loop.first %}<form method="post" action="/cars/{{ car.id }}/photos/{{ photo.id }}/up"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="link-button" aria-label="Move up" data-testid="photo-up-{{ photo.id }}">Up</button></form>{% endif %}
+              {% if not loop.last %}<form method="post" action="/cars/{{ car.id }}/photos/{{ photo.id }}/down"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="link-button" aria-label="Move down" data-testid="photo-down-{{ photo.id }}">Down</button></form>{% endif %}
+              <form method="post" action="/cars/{{ car.id }}/photos/{{ photo.id }}/delete" data-confirm="Delete this photo?"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="link-button danger" data-testid="photo-delete-{{ photo.id }}">Delete</button></form>
+            </div>
+          </li>
+        {% else %}
+          <li class="muted" data-testid="photos-empty">No photos yet.</li>
+        {% endfor %}
+      </ul>
+      {% if car.photos|length < 8 %}
+        <form method="post" action="/cars/{{ car.id }}/photos" enctype="multipart/form-data" data-testid="photo-upload-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="file" name="photos" accept="image/jpeg,image/png,image/webp" multiple required data-testid="photo-upload-input">
+          <button class="btn btn-block" type="submit" data-testid="photo-upload-submit">Upload photos</button>
+        </form>
+      {% endif %}
+
+      <hr>
+      <form method="post" action="/cars/{{ car.id }}/delete" data-confirm="Delete this car and all its photos and bookings?" data-testid="car-delete-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button class="btn btn-danger btn-block" type="submit" data-testid="car-delete">Delete car</button>
+      </form>
+    </aside>
+  {% endif %}
+</div>
+<input type="hidden" id="csrf" value="{{ csrf_token }}">
+{% endblock %}

@@ -1,0 +1,14 @@
+<a class="car-card" href="/cars/{{ car.id }}" data-testid="car-card-{{ car.id }}">
+  <div class="car-card-photo">
+    {% if car.primary_photo_url %}
+      <img src="{{ car.primary_photo_url }}" alt="{{ car.make }} {{ car.model }}" loading="lazy">
+    {% else %}
+      <div class="no-photo">No photo yet</div>
+    {% endif %}
+  </div>
+  <div class="car-card-body">
+    <div class="car-card-title" data-testid="car-card-title">{{ car.year }} {{ car.make }} {{ car.model }}</div>
+    <div class="muted small">{{ car.city }} &middot; {{ car.transmission|label }} &middot; {{ car.seats }} seats</div>
+    <div class="car-card-price"><strong data-testid="car-card-price">&euro;{{ car.daily_price|money }}</strong> <span class="muted">/ day</span></div>
+  </div>
+</a>

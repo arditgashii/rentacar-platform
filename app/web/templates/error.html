@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}{{ status }}{% endblock %}
+{% block content %}
+<div class="empty-state" data-testid="error-page">
+  <p class="error-code">{{ status }}</p>
+  <h1 data-testid="error-message">{{ message }}</h1>
+  <p><a class="btn" href="/cars">Back to the cars</a></p>
+</div>
+{% endblock %}

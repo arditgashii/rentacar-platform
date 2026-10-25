@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}My listings{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>My listings</h1>
+  <a class="btn btn-primary" href="/cars/new" data-testid="my-listings-new">List a car</a>
+</div>
+{% if cars %}
+  <div class="table-wrap">
+    <table class="table" data-testid="my-listings-table">
+      <thead><tr><th>Car</th><th>City</th><th class="num">Price / day</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        {% for car in cars %}
+          <tr data-testid="my-listing-row-{{ car.id }}">
+            <td><a href="/cars/{{ car.id }}">{{ car.year }} {{ car.make }} {{ car.model }}</a></td>
+            <td>{{ car.city }}</td>
+            <td class="num">&euro;{{ car.daily_price|money }}</td>
+            <td><span class="badge badge-{{ car.status.value }}">{{ car.status.value|label }}</span></td>
+            <td class="actions"><a href="/cars/{{ car.id }}/edit" data-testid="my-listing-edit-{{ car.id }}">Edit</a></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <div class="empty-state" data-testid="my-listings-empty">
+    <h2>You have not listed a car yet</h2>
+    <p class="muted">Earn money while you do not need your car.</p>
+    <a class="btn btn-primary" href="/cars/new">List your first car</a>
+  </div>
+{% endif %}
+{% endblock %}

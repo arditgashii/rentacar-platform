@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Rent a car from people near you{% endblock %}
+{% block content %}
+<section class="intro">
+  <div>
+    <h1>Rent a car from people near you</h1>
+    <p class="muted lead">Pick a car in Prishtina, Prizren, Peja and more. Owners set the price, you choose the dates.</p>
+  </div>
+  <form class="quick-search" method="get" action="/cars" data-testid="home-search">
+    <label class="field">
+      <span>City</span>
+      <select name="city" data-testid="home-search-city">
+        <option value="">Any city</option>
+        {% for city in cities %}<option value="{{ city }}">{{ city }}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="field">
+      <span>Type</span>
+      <select name="category" data-testid="home-search-category">
+        <option value="">Any type</option>
+        {% for c in categories %}<option value="{{ c.value }}">{{ c.value|label }}</option>{% endfor %}
+      </select>
+    </label>
+    <button class="btn btn-primary" type="submit" data-testid="home-search-submit">Search</button>
+  </form>
+</section>
+
+<section>
+  <div class="section-head">
+    <h2>Recently listed</h2>
+    <a href="/cars" data-testid="home-see-all">See all {{ total }} cars</a>
+  </div>
+  <div class="car-grid" data-testid="home-featured">
+    {% for car in cars %}{% include "_car_card.html" %}{% endfor %}
+  </div>
+</section>
+{% endblock %}

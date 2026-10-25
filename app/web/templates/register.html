@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Sign up{% endblock %}
+{% macro field_error(name) %}{% if errors.get(name) %}<span class="field-error" data-testid="register-error-{{ name }}">{{ errors[name] }}</span>{% endif %}{% endmacro %}
+{% block content %}
+<div class="auth-card">
+  <h1>Create your account</h1>
+  <form method="post" action="/register" data-testid="register-form" novalidate>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label class="field">
+      <span>Full name</span>
+      <input type="text" name="full_name" value="{{ values.full_name or '' }}" required maxlength="120" data-testid="register-full-name">
+      {{ field_error("full_name") }}
+    </label>
+    <label class="field">
+      <span>Email</span>
+      <input type="email" name="email" value="{{ values.email or '' }}" required data-testid="register-email">
+      {{ field_error("email") }}
+    </label>
+    <label class="field">
+      <span>Password</span>
+      <input type="password" name="password" minlength="8" required autocomplete="new-password" data-testid="register-password">
+      <small class="muted">At least 8 characters.</small>
+      {{ field_error("password") }}
+    </label>
+    <div class="field-row">
+      <label class="field">
+        <span>Phone <em class="muted">(optional)</em></span>
+        <input type="tel" name="phone" value="{{ values.phone or '' }}" maxlength="40" data-testid="register-phone">
+      </label>
+      <label class="field">
+        <span>City <em class="muted">(optional)</em></span>
+        <select name="city" data-testid="register-city">
+          <option value="">Choose</option>
+          {% for city in cities %}<option value="{{ city }}" {% if values.city == city %}selected{% endif %}>{{ city }}</option>{% endfor %}
+        </select>
+      </label>
+    </div>
+    <button class="btn btn-primary btn-block" type="submit" data-testid="register-submit">Create account</button>
+  </form>
+  <p class="muted small">Already have an account? <a href="/login">Log in</a></p>
+</div>
+{% endblock %}
