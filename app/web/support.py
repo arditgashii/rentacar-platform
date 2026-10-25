@@ -83,19 +83,18 @@ async def render(request: Request, template: str, status_code: int = 200, **cont
             flash = json.loads(raw)
         except ValueError:
             flash = None
+    user = await current_user(request)
     response = templates.TemplateResponse(
         request,
         template,
-        {
-            "user": await current_user(request),
-            "csrf_token": _csrf_token(request),
-            "flash": flash,
-            **context,
-        },
+        {"user": user, "csrf_token": _csrf_token(request), "flash": flash, **context},
         status_code=status_code,
     )
-    if flash is not None or raw:
+    if raw:
         response.delete_cookie(FLASH_COOKIE)
+    if user is not None:
+        # A page with someone's data must not come back from the browser cache after logout (Back button).
+        response.headers["Cache-Control"] = "no-store"
     _with_cookies(request, response)
     return response
 

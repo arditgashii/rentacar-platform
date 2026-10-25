@@ -62,3 +62,15 @@ async def test_login_never_redirects_to_another_site(client: httpx.AsyncClient) 
         },
     )
     assert response.headers["location"] == "/cars"
+
+
+async def test_private_pages_are_not_cached(client: httpx.AsyncClient) -> None:
+    token = await _csrf(client, "/login")
+    await client.post(
+        "/login", data={"email": "client1@drivenow.test", "password": "DriveNow!2026", "csrf_token": token}
+    )
+    private = await client.get("/my/listings")
+    assert private.headers["cache-control"] == "no-store", "Back after logout would show this page"
+    client.cookies.clear()
+    public = await client.get("/cars")
+    assert "cache-control" not in public.headers
