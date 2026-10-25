@@ -1,0 +1,39 @@
+[project]
+name = "drivenow"
+version = "1.0.0"
+description = "DriveNow, a rent-a-car marketplace used as the system under test for the QA automation framework"
+requires-python = ">=3.12"
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "S", "ASYNC", "RUF"]
+ignore = [
+    "S101",   # assert is how pytest checks things
+    "S105",   # default local-only secrets are documented in .env.example
+    "S603",   # the only subprocess call runs git with fixed arguments
+    "S607",
+    "B008",   # FastAPI dependencies are declared in default arguments
+    "RUF001", # the euro sign is intended
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S106"]
+"app/seed.py" = ["S311", "E501"]  # random only varies the mileage; the data tables stay one row per line
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+check_untyped_defs = true
+warn_unused_ignores = true
+
+[tool.ruff.lint.isort]
+known-third-party = ["alembic"]

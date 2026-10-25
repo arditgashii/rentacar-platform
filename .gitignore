@@ -8,3 +8,7 @@ node_modules/
 .idea/
 .vscode/
 *.log
+*.db
+storage/
+.ruff_cache/
+.mypy_cache/
