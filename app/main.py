@@ -1,5 +1,7 @@
 import re
-import subprocess
+
+# subprocess only runs `git rev-parse HEAD` with fixed arguments
+import subprocess  # nosec B404
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from functools import lru_cache
@@ -9,6 +11,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
+from starlette.middleware.base import RequestResponseEndpoint
 
 from app.api import api_router
 from app.config import get_settings
@@ -17,12 +20,15 @@ from app.errors import AppError, register_error_handlers
 from app.messaging import build_event_bus
 from app.observability import setup_logging, setup_observability
 from app.services.notifications import event_handler
+from app.services.photos import MAX_BYTES as MAX_PHOTO_BYTES
 from app.storage import build_storage
 from app.web import web_router
 from app.web.support import LoginRequired, error_page, login_redirect
 
 STATIC_DIR = Path(__file__).parent / "web" / "static"
 BLOB_NAME = re.compile(r"^cars/\d+/[0-9a-f]{32}\.(jpg|png|webp)$")
+# The largest legal request: the car form with 8 photos of 5 MB, plus room for the other fields.
+MAX_BODY_BYTES = 8 * MAX_PHOTO_BYTES + 1024 * 1024
 
 
 @lru_cache
@@ -31,7 +37,7 @@ def current_commit() -> str:
     if get_settings().commit:
         return get_settings().commit
     try:
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603 B607
             ["git", "rev-parse", "HEAD"], capture_output=True, text=True, timeout=5, check=True
         )
         return result.stdout.strip()
@@ -62,6 +68,17 @@ def create_app() -> FastAPI:
     register_error_handlers(app, error_page)
     app.add_exception_handler(LoginRequired, login_redirect)  # type: ignore[arg-type]
     setup_observability(app)
+
+    @app.middleware("http")
+    async def limit_body_size(request: Request, call_next: RequestResponseEndpoint) -> Response:
+        """Refuses an oversized upload from its Content-Length, before reading the body."""
+        length = request.headers.get("content-length", "")
+        if length.isdigit() and int(length) > MAX_BODY_BYTES:
+            return JSONResponse(
+                status_code=413, content={"detail": "The request is too large.", "code": "PAYLOAD_TOO_LARGE"}
+            )
+        return await call_next(request)
+
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
     app.include_router(api_router)
     app.include_router(web_router)

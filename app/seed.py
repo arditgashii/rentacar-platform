@@ -179,7 +179,8 @@ def _car(i: int, owner: User, rng: random.Random) -> Car:
 
 async def seed(storage: PhotoStorage) -> bool:
     """Returns False when the data was already there."""
-    rng = random.Random(42)
+    # random only varies the seeded mileage, nothing security related
+    rng = random.Random(42)  # nosec B311
     async with SessionLocal() as db:
         if await db.scalar(select(User.id).where(User.email == ADMINS[0][0])):
             return False
