@@ -1,3 +1,4 @@
+import asyncio
 from datetime import date
 from decimal import Decimal
 
@@ -10,6 +11,7 @@ from app import llm
 from app.config import get_settings
 from app.labels import label
 from app.llm import is_acceptable, mock_description
+from app.messaging import ServiceBusEventBus
 from app.models import Car
 from app.schemas import CarCreate, LoginIn
 from tests.conftest import car_payload
@@ -108,3 +110,24 @@ async def test_llm_errors_fall_back_to_the_mock(monkeypatch: pytest.MonkeyPatch)
 
     assert provider == "mock"
     assert is_acceptable(text, make_car())
+
+
+async def test_service_bus_sends_one_message_at_a_time() -> None:
+    """The SDK sender is not coroutine-safe; parallel requests must not open it at the same time."""
+    bus = ServiceBusEventBus(
+        "Endpoint=sb://localhost;SharedAccessKeyName=k;SharedAccessKey=v;UseDevelopmentEmulator=true;", "t"
+    )
+    running, overlaps = 0, 0
+
+    class FakeSender:
+        async def send_messages(self, message: object) -> None:
+            nonlocal running, overlaps
+            running += 1
+            overlaps += running > 1
+            await asyncio.sleep(0.01)
+            running -= 1
+
+    bus._sender = FakeSender()  # type: ignore[assignment]
+    await asyncio.gather(*(bus.publish({"type": "booking.created", "booking_id": n}) for n in range(5)))
+
+    assert overlaps == 0

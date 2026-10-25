@@ -34,6 +34,9 @@ class ServiceBusEventBus:
         self._client = ServiceBusClient.from_connection_string(connection_string)
         self._topic = topic
         self._sender = self._client.get_topic_sender(topic)
+        # The SDK sender is not coroutine-safe: two requests that send at the same moment race while
+        # opening the AMQP link and one message is lost. Sends are short, so they go one at a time.
+        self._send_lock = asyncio.Lock()
 
     async def start(self, handler: Handler) -> None:
         # The worker process consumes the topic; the API only publishes.
@@ -50,7 +53,8 @@ class ServiceBusEventBus:
             subject=event["type"],
             application_properties={"booking_id": event.get("booking_id", 0)},
         )
-        await self._sender.send_messages(message)
+        async with self._send_lock:
+            await self._sender.send_messages(message)
 
     async def ping(self) -> None:
         receiver = self._client.get_subscription_receiver(self._topic, "audit")
