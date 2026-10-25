@@ -1,3 +1,4 @@
+import logging
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
@@ -12,6 +13,16 @@ from app.schemas import BookingIn
 
 MAX_DAYS = 30
 ACTIVE = (BookingStatus.PENDING, BookingStatus.CONFIRMED)
+log = logging.getLogger(__name__)
+
+
+async def _publish(bus: EventBus, event: Event) -> None:
+    """The booking is already saved, so a bus outage must not turn the request into an error.
+    The lost event is logged with everything needed to replay it."""
+    try:
+        await bus.publish(event)
+    except Exception:
+        log.exception("could not publish %s for booking %s: %s", event["type"], event["booking_id"], event)
 
 
 def booking_event(event_type: str, booking: Booking) -> Event:
@@ -79,7 +90,7 @@ async def create_booking(db: AsyncSession, bus: EventBus, user: User, data: Book
     db.add(booking)
     await db.commit()
     await db.refresh(booking)
-    await bus.publish(booking_event("booking.created", booking))
+    await _publish(bus, booking_event("booking.created", booking))
     return booking
 
 
@@ -105,7 +116,7 @@ async def cancel_booking(db: AsyncSession, bus: EventBus, user: User, booking_id
         raise AppError(409, "NOT_CANCELLABLE", f"A {booking.status} booking cannot be cancelled.")
     booking.status = BookingStatus.CANCELLED
     await db.commit()
-    await bus.publish(booking_event("booking.cancelled", booking))
+    await _publish(bus, booking_event("booking.cancelled", booking))
     return booking
 
 
@@ -117,7 +128,7 @@ async def confirm_booking(db: AsyncSession, bus: EventBus, booking_id: int) -> B
         raise AppError(409, "NOT_PENDING", "Only pending bookings can be confirmed.")
     booking.status = BookingStatus.CONFIRMED
     await db.commit()
-    await bus.publish(booking_event("booking.confirmed", booking))
+    await _publish(bus, booking_event("booking.confirmed", booking))
     return booking
 
 
