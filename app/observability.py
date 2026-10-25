@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 import time
 import uuid
 from contextvars import ContextVar
@@ -46,27 +47,31 @@ def setup_logging() -> None:
 access_log = logging.getLogger("drivenow.access")
 
 
+SAFE_REQUEST_ID = re.compile(r"^[A-Za-z0-9-]{1,64}$")
+
+
 class RequestIdMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
-        token = request_id.set(request.headers.get("X-Request-ID") or uuid.uuid4().hex[:16])
+        # A caller's id is kept only when it is safe to write into a log line.
+        sent = request.headers.get("X-Request-ID", "")
+        token = request_id.set(sent if SAFE_REQUEST_ID.match(sent) else uuid.uuid4().hex[:16])
         started = time.perf_counter()
         try:
             response = await call_next(request)
+            response.headers["X-Request-ID"] = request_id.get()
+            if not request.url.path.startswith(("/static", "/metrics", "/health")):
+                access_log.info(
+                    "request",
+                    extra={
+                        "method": request.method,
+                        "path": request.url.path,
+                        "status": response.status_code,
+                        "duration_ms": round((time.perf_counter() - started) * 1000, 1),
+                    },
+                )
+            return response
         finally:
-            duration = round((time.perf_counter() - started) * 1000, 1)
-        response.headers["X-Request-ID"] = request_id.get()
-        if not request.url.path.startswith(("/static", "/metrics", "/health")):
-            access_log.info(
-                "request",
-                extra={
-                    "method": request.method,
-                    "path": request.url.path,
-                    "status": response.status_code,
-                    "duration_ms": duration,
-                },
-            )
-        request_id.reset(token)
-        return response
+            request_id.reset(token)
 
 
 def setup_tracing(app: FastAPI) -> None:
