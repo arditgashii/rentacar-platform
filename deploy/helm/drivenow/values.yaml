@@ -1,0 +1,41 @@
+image:
+  repository: drivenowacr.azurecr.io/drivenow-api
+  tag: "1.0.0"
+  pullPolicy: IfNotPresent
+
+api:
+  replicas: 2
+  port: 8000
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { cpu: 500m, memory: 512Mi }
+
+worker:
+  replicas: 1
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { cpu: 250m, memory: 256Mi }
+
+service:
+  type: ClusterIP
+  port: 80
+
+# Non-secret settings, rendered into a ConfigMap
+config:
+  ENVIRONMENT: aks
+  STORAGE_BACKEND: azure
+  MESSAGING_BACKEND: servicebus
+  SECRETS_BACKEND: keyvault
+  KEY_VAULT_URL: https://drivenow-kv.vault.azure.net/
+  DRIVENOW_BUGS: "on"
+  LLM_PROVIDER: mock
+  SEED_ON_START: "false"
+
+# Name of an existing Secret (created by the pipeline or the CSI Key Vault driver) with
+# DATABASE_URL, AZURE_STORAGE_CONNECTION_STRING and SERVICEBUS_CONNECTION_STRING.
+existingSecret: drivenow-connections
+
+# Workload identity lets the pods read Key Vault without a stored password.
+serviceAccount:
+  name: drivenow
+  clientId: ""

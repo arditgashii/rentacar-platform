@@ -12,3 +12,7 @@ node_modules/
 storage/
 .ruff_cache/
 .mypy_cache/
+.terraform/
+*.tfstate
+*.tfstate.*
+reports/
